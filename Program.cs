@@ -80,7 +80,7 @@ namespace wordsplitter
                 int startingCount = input.Count;
                 var startingTime = DateTime.Now;
                 Console.WriteLine($"Starting searching by dictionary. {input.Count:n0} input words. " +
-                					 "{stageWords.Count:n0} dictionary words to check.");
+                                                       $"{stageWords.Count:n0} dictionary words to check.");
 
                 var newCandidates = new ConcurrentDictionary<string, string>();
                 var nextStage = new ConcurrentBag<string>();
@@ -125,7 +125,7 @@ namespace wordsplitter
                                   var remaining = TimeSpan.FromSeconds(leftItems / (doneItems / elapsed.TotalSeconds));
 
                                   Console.WriteLine($"{now}: {leftItems:n0} input words left. " +
-                                  	 "{newCandidates.Count:n0} new candidates discovered. ETA {remaining}");
+                                       $"{newCandidates.Count:n0} new candidates discovered. ETA {remaining}");
                               });
                     completedTask = await Task.WhenAny(workerTask, updateGuiTask).ConfigureAwait (false);
                 }
