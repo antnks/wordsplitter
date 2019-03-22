@@ -115,22 +115,7 @@ namespace wordsplitter
 				do
 				{
 					// ReSharper disable once MethodSupportsCancellation
-					updateGuiTask = Task.Delay(1000 /*, cancellationToken - don't pass, show status during the cancellation */)
-						.ContinueWith(t =>
-							{
-								var now       = DateTime.Now;
-								var elapsed   = now - startingTime;
-								var leftItems = input.Count;
-								var doneItems = startingCount - leftItems;
-								var speed = doneItems / elapsed.TotalSeconds;
-								if (speed != 0)
-								{
-									var remaining = TimeSpan.FromSeconds(leftItems / speed);
-									Console.WriteLine($"{now}: {leftItems:n0} input words left. " +
-									$"{newCandidates.Count:n0} new candidates discovered. ETA {remaining}");
-								}
-
-							});
+					updateGuiTask = Task.Delay(1000).ContinueWith (t => ProgressBar(startingTime, input.Count, startingCount, newCandidates.Count));
 					completedTask = await Task.WhenAny(workerTask, updateGuiTask).ConfigureAwait (false);
 				}
 				while (completedTask != workerTask);
@@ -187,6 +172,21 @@ namespace wordsplitter
 					if (t.IsCompleted)
 						tasks.Remove(t);
 				}
+			}
+		}
+
+		public static void ProgressBar(DateTime startingTime, int inputCount, int startingCount, int newCandidatesCount)
+		{
+			DateTime now       = DateTime.Now;
+			TimeSpan elapsed   = now - startingTime;
+			int leftItems = inputCount;
+			int doneItems = startingCount - leftItems;
+			int speed = (int)(doneItems / elapsed.TotalSeconds);
+			if (speed != 0)
+			{
+				var remaining = TimeSpan.FromSeconds(leftItems / speed);
+				Console.WriteLine($"{now}: {leftItems:n0} input words left. " +
+				$"{newCandidatesCount:n0} new candidates discovered. ETA {remaining}");
 			}
 		}
 	}
