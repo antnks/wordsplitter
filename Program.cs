@@ -86,7 +86,6 @@ namespace wordsplitter
 				bool wasFound = false;
 				int  len      = 1;
 				for (int i = item.Length - 1; i >= 0; --i, ++len)
-				{
 					if (char.IsUpper(item, i) && (i - 1 < 0 || !char.IsUpper(item, i - 1)))
 					{
 						string word = item.Substring(i, len).ToLowerInvariant();
@@ -95,7 +94,6 @@ namespace wordsplitter
 						wasFound = true;
 						words.TryAdd(word, word); // ignore return, returns false if already added
 					}
-				}
 
 				if (!wasFound)
 					stage2.Add(item);
@@ -143,9 +141,7 @@ namespace wordsplitter
 				wasFound = true;
 				string newCandidate = item.Substring(word.Length);
 				if (newCandidate.Length != 0)
-				{
 					newCandidates.TryAdd(newCandidate, newCandidate);
-				}
 
 				break;
 			}
@@ -157,7 +153,6 @@ namespace wordsplitter
 		static void WriteToFile(string path, IEnumerable<string> data)
 		{
 			File.WriteAllLines(path, data);
-			//File.WriteAllText(path, string.Join("\n", lines) + "\n");
 		}
 
 		static async Task RunTasks(ConcurrentBag<string> input, Action action)
@@ -180,10 +175,8 @@ namespace wordsplitter
 				Task completedTask = await Task.WhenAny(tasks);
 				tasks.Remove(completedTask);
 				foreach (Task t in tasks.ToArray())
-				{
 					if (t.IsCompleted)
 						tasks.Remove(t);
-				}
 			}
 		}
 
