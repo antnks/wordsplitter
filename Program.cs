@@ -122,7 +122,13 @@ namespace wordsplitter
                                   var elapsed   = now - startingTime;
                                   var leftItems = input.Count;
                                   var doneItems = startingCount - leftItems;
-                                  var remaining = TimeSpan.FromSeconds(leftItems / (doneItems / elapsed.TotalSeconds));
+                                  var speed = doneItems / elapsed.TotalSeconds;
+                                  if (speed != 0)
+                                  {
+                                      var remaining = TimeSpan.FromSeconds(leftItems / speed);
+                                      Console.WriteLine($"{now}: {leftItems:n0} input words left. " +
+                                      $"{newCandidates.Count:n0} new candidates discovered. ETA {remaining}");
+                                  }
 
                                   Console.WriteLine($"{now}: {leftItems:n0} input words left. " +
                                        $"{newCandidates.Count:n0} new candidates discovered. ETA {remaining}");
