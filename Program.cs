@@ -18,56 +18,13 @@ namespace wordsplitter
 			var stage2 = new ConcurrentBag<string>();
 			var words = new ConcurrentDictionary<string, string>();
 
-			await RunTasks(stage1, () =>
-			{
-				if (!stage1.TryTake(out var item))
-					return;
-
-					bool wasFound = false;
-					int  len      = 1;
-					for (int i = item.Length - 1; i >= 0; --i, ++len)
-					{
-						if (char.IsUpper(item, i) && (i - 1 < 0 || !char.IsUpper(item, i - 1)))
-						{
-							var word = item.Substring(i, len).ToLowerInvariant();
-
-							len      = 0;
-							wasFound = true;
-							words.TryAdd(word, word); // ignore return, returns false if already added
-						}
-					}
-
-					if (!wasFound)
-						stage2.Add(item);
-					else if (len != 1)
-						throw new Exception("first letter is not capital?");
-			});
+			await RunTasks(stage1, () => Pass1 (stage1, stage2, words));
 
 			int capCount = words.Count;
 			Console.WriteLine($"Found {capCount:n0} words starting with capital");
 
 			var stage3 = new ConcurrentBag<string>();
-			await RunTasks(stage2, () =>
-		       {
-		           if (!stage2.TryTake(out var item))
-		               return;
-
-		           if (item.Length % 2 != 0)
-		               return;
-
-		           int len = item.Length / 2;
-		           for (int i = 0; i < len; ++i)
-		           {
-		               if (item[i] == item[i + len])
-		                   continue;
-
-		               stage3.Add(item);
-		               return;
-		           }
-
-		           var word = item.Substring(0, len);
-		           words.TryAdd(word, word); // ignore return, returns false if already added
-		       });
+			await RunTasks(stage2, () => Pass2 (stage2, stage3, words));
 
 			Console.WriteLine($"Found {words.Count - capCount} repeating words");
 
@@ -87,30 +44,7 @@ namespace wordsplitter
 
 				Task completedTask;
 				Task updateGuiTask;
-				var workerTask = RunTasks(input, () =>
-				{
-					if (!input.TryTake(out var item))
-						return;
-
-					bool wasFound = false;
-					foreach (var word in stageWords)
-					{
-						if (!item.StartsWith(word))
-							continue;
-
-						wasFound = true;
-						var newCandidate = item.Substring(word.Length);
-						if (newCandidate.Length != 0)
-						{
-							newCandidates.TryAdd(newCandidate, newCandidate);
-						}
-
-						break;
-					}
-
-					if (!wasFound)
-						nextStage.Add(item);
-				});
+				var workerTask = RunTasks(input, () => WorkerTasks(input, nextStage, newCandidates, stageWords));
 
 				do
 				{
@@ -140,6 +74,78 @@ namespace wordsplitter
 			output = input.ToList();
 			output.Sort(); 
 			WriteToFile(args[3], output);
+		}
+
+		static void Pass1(ConcurrentBag<string> stage1, ConcurrentBag<string> stage2, ConcurrentDictionary<string, string> words)
+		{
+			if (!stage1.TryTake(out var item))
+				return;
+
+				bool wasFound = false;
+				int  len      = 1;
+				for (int i = item.Length - 1; i >= 0; --i, ++len)
+				{
+					if (char.IsUpper(item, i) && (i - 1 < 0 || !char.IsUpper(item, i - 1)))
+					{
+						var word = item.Substring(i, len).ToLowerInvariant();
+
+						len      = 0;
+						wasFound = true;
+						words.TryAdd(word, word); // ignore return, returns false if already added
+					}
+				}
+
+				if (!wasFound)
+					stage2.Add(item);
+				else if (len != 1)
+					throw new Exception("first letter is not capital?");
+		}
+
+		static void Pass2(ConcurrentBag<string> stage2, ConcurrentBag<string> stage3, ConcurrentDictionary<string, string> words)
+		{
+			if (!stage2.TryTake(out var item))
+			   return;
+
+			if (item.Length % 2 != 0)
+			   return;
+
+			int len = item.Length / 2;
+			for (int i = 0; i < len; ++i)
+			{
+			   if (item[i] == item[i + len])
+				   continue;
+
+			   stage3.Add(item);
+			   return;
+			}
+
+			var word = item.Substring(0, len);
+			words.TryAdd(word, word); // ignore return, returns false if already added
+	   }
+
+	   static void WorkerTasks(ConcurrentBag<string> input, ConcurrentBag<string> nextStage, ConcurrentDictionary<string, string> newCandidates, ICollection<string> stageWords)
+	   {
+			if (!input.TryTake(out var item))
+				return;
+
+			bool wasFound = false;
+			foreach (var word in stageWords)
+			{
+				if (!item.StartsWith(word))
+					continue;
+
+				wasFound = true;
+				var newCandidate = item.Substring(word.Length);
+				if (newCandidate.Length != 0)
+				{
+					newCandidates.TryAdd(newCandidate, newCandidate);
+				}
+
+				break;
+			}
+
+			if (!wasFound)
+				nextStage.Add(item);
 		}
 
 		static void WriteToFile(string path, IEnumerable<string> data)
@@ -175,7 +181,7 @@ namespace wordsplitter
 			}
 		}
 
-		public static void ProgressBar(DateTime startingTime, int inputCount, int startingCount, int newCandidatesCount)
+		static void ProgressBar(DateTime startingTime, int inputCount, int startingCount, int newCandidatesCount)
 		{
 			DateTime now       = DateTime.Now;
 			TimeSpan elapsed   = now - startingTime;
