@@ -11,40 +11,40 @@ namespace wordsplitter
 	{
 		static async Task Main(string[] args)
 		{
-			var lines = File.ReadAllLines(args[0]);
+			string[] lines = File.ReadAllLines(args[0]);
 			Console.WriteLine($"Loaded {lines.Length:n0} words");
 
-			var stage1 = new ConcurrentBag<string>(lines);
-			var stage2 = new ConcurrentBag<string>();
-			var words = new ConcurrentDictionary<string, string>();
+			ConcurrentBag<string> stage1 = new ConcurrentBag<string>(lines);
+			ConcurrentBag<string> stage2 = new ConcurrentBag<string>();
+			ConcurrentDictionary<string, string> words = new ConcurrentDictionary<string, string>();
 
 			await RunTasks(stage1, () => Pass1 (stage1, stage2, words));
 
 			int capCount = words.Count;
 			Console.WriteLine($"Found {capCount:n0} words starting with capital");
 
-			var stage3 = new ConcurrentBag<string>();
+			ConcurrentBag<string> stage3 = new ConcurrentBag<string>();
 			await RunTasks(stage2, () => Pass2 (stage2, stage3, words));
 
 			Console.WriteLine($"Found {words.Count - capCount} repeating words");
 
-			var stageWords = words.Values;
-			var input = stage3;
-			var candidates = new List<string>();
+			ICollection<string> stageWords = words.Values;
+			ConcurrentBag<string> input = stage3;
+			List<string> candidates = new List<string>();
 
 			do
 			{
 				int startingCount = input.Count;
-				var startingTime = DateTime.Now;
+				DateTime startingTime = DateTime.Now;
 				Console.WriteLine($"Starting searching by dictionary. {input.Count:n0} input words. " +
 													   $"{stageWords.Count:n0} dictionary words to check.");
 
-				var newCandidates = new ConcurrentDictionary<string, string>();
-				var nextStage = new ConcurrentBag<string>();
+				ConcurrentDictionary<string, string> newCandidates = new ConcurrentDictionary<string, string>();
+				ConcurrentBag<string> nextStage = new ConcurrentBag<string>();
 
 				Task completedTask;
 				Task updateGuiTask;
-				var workerTask = RunTasks(input, () => WorkerTasks(input, nextStage, newCandidates, stageWords));
+				Task workerTask = RunTasks(input, () => WorkerTasks(input, nextStage, newCandidates, stageWords));
 
 				do
 				{
@@ -64,7 +64,7 @@ namespace wordsplitter
 
 			} while (stageWords.Any());
 
-			var output = words.Values.ToList();
+			List<string> output = words.Values.ToList();
 			output.Sort();
 			WriteToFile(args[1], output);
 
@@ -78,7 +78,9 @@ namespace wordsplitter
 
 		static void Pass1(ConcurrentBag<string> stage1, ConcurrentBag<string> stage2, ConcurrentDictionary<string, string> words)
 		{
-			if (!stage1.TryTake(out var item))
+			string item;
+
+			if (!stage1.TryTake(out item))
 				return;
 
 				bool wasFound = false;
@@ -87,7 +89,7 @@ namespace wordsplitter
 				{
 					if (char.IsUpper(item, i) && (i - 1 < 0 || !char.IsUpper(item, i - 1)))
 					{
-						var word = item.Substring(i, len).ToLowerInvariant();
+						string word = item.Substring(i, len).ToLowerInvariant();
 
 						len      = 0;
 						wasFound = true;
@@ -103,39 +105,43 @@ namespace wordsplitter
 
 		static void Pass2(ConcurrentBag<string> stage2, ConcurrentBag<string> stage3, ConcurrentDictionary<string, string> words)
 		{
-			if (!stage2.TryTake(out var item))
-			   return;
+			string item;
+
+			if (!stage2.TryTake(out item))
+				return;
 
 			if (item.Length % 2 != 0)
-			   return;
+				return;
 
 			int len = item.Length / 2;
 			for (int i = 0; i < len; ++i)
 			{
-			   if (item[i] == item[i + len])
-				   continue;
+				if (item[i] == item[i + len])
+					continue;
 
-			   stage3.Add(item);
-			   return;
+				stage3.Add(item);
+				return;
 			}
 
-			var word = item.Substring(0, len);
+			string word = item.Substring(0, len);
 			words.TryAdd(word, word); // ignore return, returns false if already added
-	   }
+		}
 
-	   static void WorkerTasks(ConcurrentBag<string> input, ConcurrentBag<string> nextStage, ConcurrentDictionary<string, string> newCandidates, ICollection<string> stageWords)
-	   {
-			if (!input.TryTake(out var item))
+		static void WorkerTasks(ConcurrentBag<string> input, ConcurrentBag<string> nextStage, ConcurrentDictionary<string, string> newCandidates, ICollection<string> stageWords)
+		{
+			string item;
+
+			if (!input.TryTake(out item))
 				return;
 
 			bool wasFound = false;
-			foreach (var word in stageWords)
+			foreach (string word in stageWords)
 			{
 				if (!item.StartsWith(word))
 					continue;
 
 				wasFound = true;
-				var newCandidate = item.Substring(word.Length);
+				string newCandidate = item.Substring(word.Length);
 				if (newCandidate.Length != 0)
 				{
 					newCandidates.TryAdd(newCandidate, newCandidate);
@@ -156,10 +162,10 @@ namespace wordsplitter
 
 		static async Task RunTasks(ConcurrentBag<string> input, Action action)
 		{
-			var tasks = new List<Task>();
+			List<Task> tasks = new List<Task>();
 			while (!input.IsEmpty)
 			{
-				var task = Task.Run(action);
+				Task task = Task.Run(action);
 
 				tasks.Add(task);
 				await BalanceLoad(tasks);
@@ -171,9 +177,9 @@ namespace wordsplitter
 		{
 			if (tasks.Count == 8)
 			{
-				var completedTask = await Task.WhenAny(tasks);
+				Task completedTask = await Task.WhenAny(tasks);
 				tasks.Remove(completedTask);
-				foreach (var t in tasks.ToArray())
+				foreach (Task t in tasks.ToArray())
 				{
 					if (t.IsCompleted)
 						tasks.Remove(t);
@@ -190,7 +196,7 @@ namespace wordsplitter
 			int speed = (int)(doneItems / elapsed.TotalSeconds);
 			if (speed != 0)
 			{
-				var remaining = TimeSpan.FromSeconds(leftItems / speed);
+				TimeSpan remaining = TimeSpan.FromSeconds(leftItems / speed);
 				Console.WriteLine($"{now}: {leftItems:n0} input words left. " +
 				$"{newCandidatesCount:n0} new candidates discovered. ETA {remaining}");
 			}
