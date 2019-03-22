@@ -130,8 +130,6 @@ namespace wordsplitter
 									$"{newCandidates.Count:n0} new candidates discovered. ETA {remaining}");
 								}
 
-								Console.WriteLine($"{now}: {leftItems:n0} input words left. " +
-									$"{newCandidates.Count:n0} new candidates discovered. ETA {remaining}");
 							});
 					completedTask = await Task.WhenAny(workerTask, updateGuiTask).ConfigureAwait (false);
 				}
